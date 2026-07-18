@@ -1,0 +1,14 @@
+{
+  "bookId": "grade5-english-sem1",
+  "title": "五年级英语上册",
+  "units": [
+    { "id": "unit-1", "title": "Unit 1: Weekend Plans", "pageStart": 3, "pageEnd": 13 },
+    { "id": "unit-2", "title": "Unit 2: Stay Healthy", "pageStart": 14, "pageEnd": 25 },
+    { "id": "unit-3", "title": "Unit 3: Countries", "pageStart": 27, "pageEnd": 40 },
+    { "id": "unit-4", "title": "Unit 4: Food & Drinks", "pageStart": 41, "pageEnd": 50 },
+    { "id": "unit-5", "title": "Unit 5: Living Things", "pageStart": 51, "pageEnd": 61 },
+    { "id": "unit-6", "title": "Unit 6: Nature", "pageStart": 62, "pageEnd": 73 },
+    { "id": "unit-7", "title": "Unit 7: Time & Schedule", "pageStart": 74, "pageEnd": 86 },
+    { "id": "unit-8", "title": "Unit 8: Review", "pageStart": 87, "pageEnd": 105 }
+  ]
+}

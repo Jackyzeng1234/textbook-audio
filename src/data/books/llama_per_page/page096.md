@@ -1,0 +1,3 @@
+Lisa closes her eyes and plays. But the fast notes are difficult to play. "I can't play like Eric," she says. Mr. White plays some music on his computer. The fast notes sound like birds or rain. "That's beautiful. I'll play like that one day!"
+
+Mr. White smiles. "Lisa, that's you playing!" "Really?" asks Lisa. Mr. White laughs. "You work hard and play well, but don't forget to enjoy the music. You're a great musician."
