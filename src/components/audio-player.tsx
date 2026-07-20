@@ -26,7 +26,7 @@ export function AudioPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [resumed, setResumed] = useState(false);
-  const progressSaveTimer = useRef<ReturnType<typeof setInterval>>();
+  const progressSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 切换 section 时重置，autoPlay 时自动播放
   useEffect(() => {
