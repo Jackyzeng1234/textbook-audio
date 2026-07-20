@@ -1,35 +1,35 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { books } from '@/lib/books';
-import fs from 'fs';
-import path from 'path';
 
-/** 构建时读取，编译为静态 HTML */
-function getBookStats(bookId: string) {
-  try {
-    // 从预生成的 JSON 读取（Cloudflare Pages 兼容）
-    const allPath = path.join(process.cwd(), 'public/data', `${bookId}-all.json`);
-    if (fs.existsSync(allPath)) {
-      const units = JSON.parse(fs.readFileSync(allPath, 'utf-8'));
-      let totalSections = 0;
-      for (const u of units) {
-        totalSections += u.sections?.length || 0;
-      }
-      return { unitCount: units.length, totalSections };
-    }
-  } catch {}
-
-  // 兜底：直接读配置
-  try {
-    const configPath = path.join(process.cwd(), 'src/data/books', `${bookId}-config.json`);
-    if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      return { unitCount: config.units?.length || 0, totalSections: 0 };
-    }
-  } catch {}
-
-  return { unitCount: 0, totalSections: 0 };
+interface BookStats {
+  unitCount: number;
+  totalSections: number;
 }
 
 export default function HomePage() {
+  const [stats, setStats] = useState<Record<string, BookStats>>({});
+
+  useEffect(() => {
+    // 从静态 JSON 加载（Cloudflare Pages 兼容，不依赖 fs）
+    Promise.all(
+      books.map(async (book) => {
+        try {
+          const resp = await fetch(`/data/${book.id}-all.json`);
+          const units = await resp.json();
+          let totalSections = 0;
+          for (const u of units) totalSections += u.sections?.length || 0;
+          return [book.id, { unitCount: units.length, totalSections }] as const;
+        } catch {
+          return [book.id, { unitCount: 0, totalSections: 0 }] as const;
+        }
+      })
+    ).then((results) => {
+      setStats(Object.fromEntries(results));
+    });
+  }, []);
+
   return (
     <div>
       <div className="text-center mb-12">
@@ -40,7 +40,7 @@ export default function HomePage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {books.map((book) => {
-          const { unitCount, totalSections } = getBookStats(book.id);
+          const s = stats[book.id] || { unitCount: '...', totalSections: '...' } as any;
           return (
             <a key={book.id} href={`/book/${book.id}`}
               className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
@@ -49,10 +49,10 @@ export default function HomePage() {
                 <div className="text-4xl mb-3">{book.cover}</div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">{book.title}</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  {book.grade} · {book.subject} · {unitCount} 个单元
+                  {book.grade} · {book.subject} · {s.unitCount} 个单元
                 </p>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span>{totalSections} 段音频</span>
+                  <span>{s.totalSections} 段音频</span>
                 </div>
               </div>
             </a>
