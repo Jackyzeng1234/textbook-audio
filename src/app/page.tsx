@@ -2,25 +2,31 @@ import { books } from '@/lib/books';
 import fs from 'fs';
 import path from 'path';
 
-function loadBookUnitCount(bookId: string): number {
+/** 构建时读取，编译为静态 HTML */
+function getBookStats(bookId: string) {
+  try {
+    // 从预生成的 JSON 读取（Cloudflare Pages 兼容）
+    const allPath = path.join(process.cwd(), 'public/data', `${bookId}-all.json`);
+    if (fs.existsSync(allPath)) {
+      const units = JSON.parse(fs.readFileSync(allPath, 'utf-8'));
+      let totalSections = 0;
+      for (const u of units) {
+        totalSections += u.sections?.length || 0;
+      }
+      return { unitCount: units.length, totalSections };
+    }
+  } catch {}
+
+  // 兜底：直接读配置
   try {
     const configPath = path.join(process.cwd(), 'src/data/books', `${bookId}-config.json`);
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      return config.units?.length || 0;
+      return { unitCount: config.units?.length || 0, totalSections: 0 };
     }
   } catch {}
-  return 0;
-}
 
-function loadBookSectionCount(bookId: string): number {
-  try {
-    const audioDir = path.join(process.cwd(), 'public/audio', bookId);
-    if (fs.existsSync(audioDir)) {
-      return fs.readdirSync(audioDir).filter((f) => f.endsWith('.mp3')).length;
-    }
-  } catch {}
-  return 0;
+  return { unitCount: 0, totalSections: 0 };
 }
 
 export default function HomePage() {
@@ -34,8 +40,7 @@ export default function HomePage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {books.map((book) => {
-          const unitCount = loadBookUnitCount(book.id);
-          const sectionCount = loadBookSectionCount(book.id);
+          const { unitCount, totalSections } = getBookStats(book.id);
           return (
             <a key={book.id} href={`/book/${book.id}`}
               className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
@@ -47,7 +52,7 @@ export default function HomePage() {
                   {book.grade} · {book.subject} · {unitCount} 个单元
                 </p>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span>{sectionCount} 段音频</span>
+                  <span>{totalSections} 段音频</span>
                 </div>
               </div>
             </a>
