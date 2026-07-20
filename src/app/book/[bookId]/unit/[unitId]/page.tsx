@@ -28,45 +28,47 @@ export default function UnitPage() {
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [unitData, setUnitData] = useState<UnitData | null>(null);
-  const [allUnits, setAllUnits] = useState<UnitData[]>([]);
+  const [allUnitIds, setAllUnitIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const currentIdxRef = useRef(0);
   const unitIdRef = useRef(unitId);
 
-  useEffect(() => { currentIdxRef.current = currentIdx; }, [currentIdx]);
   useEffect(() => { unitIdRef.current = unitId; }, [unitId]);
 
   useEffect(() => {
     setLoading(true);
     setError('');
     setCurrentIdx(0);
-    // 加载所有单元信息（用于跨单元跳转）
-    fetch(`/api/unit?bookId=${bookId}`)
-      .then((r) => r.json())
-      .then((all: UnitData[]) => {
-        setAllUnits(all);
-        const current = all.find((u) => u.id === unitId);
-        if (!current) throw new Error('单元不存在');
-        setUnitData(current);
-        // 找第一个未完成的
+
+    // 从静态 JSON 加载（兼容本地开发和 Cloudflare Pages）
+    Promise.all([
+      fetch(`/data/${bookId}-all.json`).then((r) => r.json()),
+      fetch(`/data/${bookId}-${unitId}.json`).then((r) => r.json()),
+    ])
+      .then(([allUnits, currentUnit]: [UnitData[], UnitData]) => {
+        setAllUnitIds(allUnits.map((u) => u.id));
+        setUnitData(currentUnit);
+        // 找第一个未完成的 section
         try {
           const progress = JSON.parse(localStorage.getItem('textbook_audio_progress') || '{}');
-          const savedIdx = current.sections?.findIndex((s) => !progress[s.id]?.completed);
+          const savedIdx = currentUnit.sections?.findIndex((s) => !progress[s.id]?.completed);
           if (savedIdx >= 0) setCurrentIdx(savedIdx);
         } catch {}
         setLoading(false);
       })
-      .catch((e) => { setError(e.message); setLoading(false); });
+      .catch((e) => {
+        setError(e.message);
+        setLoading(false);
+      });
   }, [bookId, unitId]);
 
   const goToNextUnit = useCallback(() => {
-    const currentUnitIdx = allUnits.findIndex((u) => u.id === unitIdRef.current);
-    if (currentUnitIdx >= 0 && currentUnitIdx < allUnits.length - 1) {
-      const nextUnit = allUnits[currentUnitIdx + 1];
-      router.push(`/book/${bookId}/unit/${nextUnit.id}`);
+    const currentIdx = allUnitIds.indexOf(unitIdRef.current);
+    if (currentIdx >= 0 && currentIdx < allUnitIds.length - 1) {
+      const nextId = allUnitIds[currentIdx + 1];
+      router.push(`/book/${bookId}/unit/${nextId}`);
     }
-  }, [allUnits, bookId, router]);
+  }, [allUnitIds, bookId, router]);
 
   const goPrev = useCallback(() => {
     setCurrentIdx((i) => Math.max(0, i - 1));
@@ -74,14 +76,13 @@ export default function UnitPage() {
 
   const goNext = useCallback(() => {
     const sections = unitData?.sections || [];
-    const nextIdx = currentIdxRef.current + 1;
+    const nextIdx = currentIdx + 1;
     if (nextIdx >= sections.length) {
-      // 当前单元播完了，跳下一个单元
       goToNextUnit();
     } else {
       setCurrentIdx(nextIdx);
     }
-  }, [unitData, goToNextUnit]);
+  }, [unitData, currentIdx, goToNextUnit]);
 
   const sections = unitData?.sections || [];
   const current = sections[currentIdx];
@@ -114,17 +115,13 @@ export default function UnitPage() {
         <span className="text-gray-600">{unitData.title}</span>
       </nav>
 
-      {/* 页码选择器 */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2 flex-wrap">
         {sections.map((section, idx) => {
           let completed = false;
           try {
-            const progress = JSON.parse(
-              typeof window !== 'undefined' ? localStorage.getItem('textbook_audio_progress') || '{}' : '{}'
-            );
+            const progress = JSON.parse(localStorage.getItem('textbook_audio_progress') || '{}');
             completed = progress[section.id]?.completed;
           } catch {}
-
           return (
             <button
               key={section.id}
@@ -143,7 +140,6 @@ export default function UnitPage() {
         })}
       </div>
 
-      {/* 音频播放器 */}
       {current && (
         <AudioPlayer
           key={current.id}
@@ -162,10 +158,7 @@ export default function UnitPage() {
       )}
 
       <div className="mt-6 text-center">
-        <Link
-          href={`/book/${bookId}`}
-          className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600"
-        >
+        <Link href={`/book/${bookId}`} className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>

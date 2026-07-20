@@ -35,7 +35,7 @@ export function loadBookData(bookId: string): { title: string; units: Unit[] } |
       const id = `${bookId}-p${page}`;
       const mdPath = path.join(process.cwd(), 'src/data/books/llama_per_page', `page${String(page).padStart(3, '0')}.md`);
       const audioPath = `/audio/${bookId}/page${String(page).padStart(3, '0')}.mp3`;
-      const imgPath = `/pages/${bookId}/page${String(page).padStart(3, '0')}.jpg`;
+      const imgPath = `/pages/${bookId}/page${String(page).padStart(3, '0')}.webp`;
 
       const audioExists = fs.existsSync(path.join(process.cwd(), 'public', audioPath));
       const imgExists = fs.existsSync(path.join(process.cwd(), 'public', imgPath));
