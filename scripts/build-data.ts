@@ -10,7 +10,7 @@ const CONFIG_MAP: Record<string, string> = {
 };
 
 const DATA_DIR = path.join(process.cwd(), 'src/data/books');
-const OUTPUT_DIR = path.join(process.cwd(), 'public/data');
+const OUTPUT_DIR = path.join(process.cwd(), 'src/data/generated');
 
 interface UnitConfig {
   id: string;

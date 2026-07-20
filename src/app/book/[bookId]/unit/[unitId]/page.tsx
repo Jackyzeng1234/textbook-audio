@@ -4,21 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AudioPlayer } from '@/components/audio-player';
-
-interface Section {
-  id: string;
-  title: string;
-  text: string;
-  audioUrl?: string;
-  imageUrl?: string;
-  duration?: number;
-}
-
-interface UnitData {
-  id: string;
-  title: string;
-  sections: Section[];
-}
+import { getUnitData, getUnitsForBook, type SectionData } from '@/lib/book-data';
 
 export default function UnitPage() {
   const params = useParams();
@@ -27,68 +13,46 @@ export default function UnitPage() {
   const unitId = params.unitId as string;
 
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [unitData, setUnitData] = useState<UnitData | null>(null);
-  const [allUnitIds, setAllUnitIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [unitData, setUnitData] = useState<{ id: string; title: string; sections: SectionData[] } | null>(null);
+  const [allUnits, setAllUnits] = useState<{ id: string }[]>([]);
   const unitIdRef = useRef(unitId);
 
   useEffect(() => { unitIdRef.current = unitId; }, [unitId]);
 
+  // 数据在构建时内联，无需 fetch
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    setCurrentIdx(0);
-
-    // 从静态 JSON 加载（兼容本地开发和 Cloudflare Pages）
-    Promise.all([
-      fetch(`/data/${bookId}-all.json`).then((r) => r.json()),
-      fetch(`/data/${bookId}-${unitId}.json`).then((r) => r.json()),
-    ])
-      .then(([allUnits, currentUnit]: [UnitData[], UnitData]) => {
-        setAllUnitIds(allUnits.map((u) => u.id));
-        setUnitData(currentUnit);
-        // 找第一个未完成的 section
-        try {
-          const progress = JSON.parse(localStorage.getItem('textbook_audio_progress') || '{}');
-          const savedIdx = currentUnit.sections?.findIndex((s) => !progress[s.id]?.completed);
-          if (savedIdx >= 0) setCurrentIdx(savedIdx);
-        } catch {}
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setLoading(false);
-      });
+    const all = getUnitsForBook(bookId);
+    setAllUnits(all.map((u) => ({ id: u.id })));
+    const current = getUnitData(bookId, unitId);
+    if (current) {
+      setUnitData(current);
+      try {
+        const progress = JSON.parse(localStorage.getItem('textbook_audio_progress') || '{}');
+        const savedIdx = current.sections.findIndex((s) => !progress[s.id]?.completed);
+        if (savedIdx >= 0) setCurrentIdx(savedIdx);
+      } catch {}
+    }
   }, [bookId, unitId]);
 
   const goToNextUnit = useCallback(() => {
-    const currentIdx = allUnitIds.indexOf(unitIdRef.current);
-    if (currentIdx >= 0 && currentIdx < allUnitIds.length - 1) {
-      const nextId = allUnitIds[currentIdx + 1];
-      router.push(`/book/${bookId}/unit/${nextId}`);
+    const idx = allUnits.findIndex((u) => u.id === unitIdRef.current);
+    if (idx >= 0 && idx < allUnits.length - 1) {
+      router.push(`/book/${bookId}/unit/${allUnits[idx + 1].id}`);
     }
-  }, [allUnitIds, bookId, router]);
+  }, [allUnits, bookId, router]);
 
-  const goPrev = useCallback(() => {
-    setCurrentIdx((i) => Math.max(0, i - 1));
-  }, []);
+  const goPrev = useCallback(() => setCurrentIdx((i) => Math.max(0, i - 1)), []);
 
   const goNext = useCallback(() => {
     const sections = unitData?.sections || [];
-    const nextIdx = currentIdx + 1;
-    if (nextIdx >= sections.length) {
+    if (currentIdx + 1 >= sections.length) {
       goToNextUnit();
     } else {
-      setCurrentIdx(nextIdx);
+      setCurrentIdx((i) => i + 1);
     }
   }, [unitData, currentIdx, goToNextUnit]);
 
-  const sections = unitData?.sections || [];
-  const current = sections[currentIdx];
-  const isLastInUnit = currentIdx >= sections.length - 1;
-
-  if (loading) {
+  if (!unitData) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full" />
@@ -96,14 +60,8 @@ export default function UnitPage() {
     );
   }
 
-  if (error || !unitData || sections.length === 0) {
-    return (
-      <div className="text-center py-20">
-        <p className="text-gray-400">{error || '暂无数据'}</p>
-        <Link href={`/book/${bookId}`} className="text-emerald-500 text-sm mt-2 inline-block">返回</Link>
-      </div>
-    );
-  }
+  const sections = unitData.sections;
+  const current = sections[currentIdx];
 
   return (
     <div>
@@ -123,17 +81,14 @@ export default function UnitPage() {
             completed = progress[section.id]?.completed;
           } catch {}
           return (
-            <button
-              key={section.id}
-              onClick={() => setCurrentIdx(idx)}
+            <button key={section.id} onClick={() => setCurrentIdx(idx)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 idx === currentIdx
                   ? 'bg-emerald-500 text-white shadow-md'
                   : completed
                     ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
+              }`}>
               {completed ? '✓ ' : ''}{section.title}
             </button>
           );
@@ -150,8 +105,8 @@ export default function UnitPage() {
           imageUrl={current.imageUrl}
           autoPlay={true}
           hasPrev={currentIdx > 0}
-          hasNext={!isLastInUnit}
-          nextLabel={isLastInUnit ? '下一个单元' : undefined}
+          hasNext={currentIdx < sections.length - 1}
+          nextLabel={currentIdx >= sections.length - 1 ? '下一个单元' : undefined}
           onPrev={goPrev}
           onNext={goNext}
         />

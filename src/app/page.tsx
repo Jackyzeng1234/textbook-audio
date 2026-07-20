@@ -1,35 +1,7 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import { books } from '@/lib/books';
-
-interface BookStats {
-  unitCount: number;
-  totalSections: number;
-}
+import { getUnitsForBook } from '@/lib/book-data';
 
 export default function HomePage() {
-  const [stats, setStats] = useState<Record<string, BookStats>>({});
-
-  useEffect(() => {
-    // 从静态 JSON 加载（Cloudflare Pages 兼容，不依赖 fs）
-    Promise.all(
-      books.map(async (book) => {
-        try {
-          const resp = await fetch(`/data/${book.id}-all.json`);
-          const units = await resp.json();
-          let totalSections = 0;
-          for (const u of units) totalSections += u.sections?.length || 0;
-          return [book.id, { unitCount: units.length, totalSections }] as const;
-        } catch {
-          return [book.id, { unitCount: 0, totalSections: 0 }] as const;
-        }
-      })
-    ).then((results) => {
-      setStats(Object.fromEntries(results));
-    });
-  }, []);
-
   return (
     <div>
       <div className="text-center mb-12">
@@ -40,7 +12,8 @@ export default function HomePage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {books.map((book) => {
-          const s = stats[book.id] || { unitCount: '...', totalSections: '...' } as any;
+          const units = getUnitsForBook(book.id);
+          const totalSections = units.reduce((s, u) => s + u.sections.length, 0);
           return (
             <a key={book.id} href={`/book/${book.id}`}
               className="group relative overflow-hidden rounded-2xl bg-white shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
@@ -49,10 +22,10 @@ export default function HomePage() {
                 <div className="text-4xl mb-3">{book.cover}</div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">{book.title}</h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  {book.grade} · {book.subject} · {s.unitCount} 个单元
+                  {book.grade} · {book.subject} · {units.length} 个单元
                 </p>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span>{s.totalSections} 段音频</span>
+                  <span>{totalSections} 段音频</span>
                 </div>
               </div>
             </a>
